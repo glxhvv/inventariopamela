@@ -9,7 +9,13 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 app = Flask(__name__)
-
+@app.after_request
+def texto_plano(resp):
+    if request.args.get("t") and resp.is_json:
+        data = resp.get_json(silent=True) or {}
+        resp.set_data(str(data.get("mensaje", "")))
+        resp.mimetype = "text/plain"
+    return resp
 # ---------------- Conexión a Google Sheets ----------------
 def conectar_sheets():
     scope = [
@@ -60,12 +66,14 @@ def asegurar_hilo():
 def antes_de_cada_peticion():
     asegurar_hilo()
 
+nombres = {}
 
 def refrescar_usados(productos):
     for p in productos:
         c = str(p.get("Codigo", "")).strip()
         if c.isdigit():
             usados.add(int(c))
+            nombres[int(c)] = str(p.get("Descripcion", "")).strip()
 
 
 def siguiente_libre():
@@ -115,7 +123,8 @@ def gestionar_producto():
                         }), 400
                 else:
                     n = siguiente_libre()
-                usados.add(n)  # apartado al instante
+                usados.add(n)
+                nombres[n] = descripcion # apartado al instante
             codigo = str(n).zfill(3)
 
             def tarea():
@@ -135,7 +144,7 @@ def gestionar_producto():
                 "mensaje": f"✅ {descripcion} creado con código {codigo}"
             })
 
-        # ---------- MOVIMIENTO ----------
+              # ---------- MOVIMIENTO ----------
         elif accion == "movimiento":
             cantidad = int(datos.get("cantidad", 0))
             tipo_op = datos.get("tipo")  # "Entrada" o "Salida"
@@ -144,8 +153,10 @@ def gestionar_producto():
             if int(codigo) not in usados:
                 return jsonify({
                     "status": "error",
-                    "mensaje": f"El código {codigo} no existe."
+                    "mensaje": f"❌ El código {codigo} no existe."
                 }), 404
+
+            nombre = nombres.get(int(codigo), "")
 
             def tarea():
                 ss = conectar_sheets()
@@ -178,9 +189,8 @@ def gestionar_producto():
 
             return jsonify({
                 "status": "exito",
-                "mensaje": f"✅ {tipo_op} de {cantidad} en [{codigo}]"
+                "mensaje": f"✅ {tipo_op} de {cantidad}\n[{codigo}] {nombre}"
             })
-
         # ---------- CÓDIGOS DISPONIBLES ----------
         elif accion == "obtenercodigo":
             ss = conectar_sheets()
