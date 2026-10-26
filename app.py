@@ -34,18 +34,22 @@ usados = set()      # códigos conocidos (incluye los apartados en cola)
 cargado = False
 
 
+errores = []
+
 def worker():
     while True:
         tarea = cola.get()
         try:
             tarea()
         except Exception as e:
-            print("Error en cola:", e)
+            errores.append(f"{datetime.now():%H:%M:%S} {type(e).__name__}: {e}")
+            del errores[:-10]
+            print("Error en cola:", repr(e))
         finally:
             cola.task_done()
 
-
-threading.Thread(target=worker, daemon=True).start()
+hilo = threading.Thread(target=worker, daemon=True)
+hilo.start()
 
 
 def refrescar_usados(productos):
@@ -143,7 +147,7 @@ def gestionar_producto():
                 stock = None
                 for p in hp.get_all_records():
                     if str(p.get("Codigo", "")).strip().zfill(3) == codigo:
-                        stock = int(p.get("Inventario", 0))
+                        stock = int(p.get("Existencia", 0))
                         break
                     fila += 1
 
@@ -215,5 +219,22 @@ def codigos():
         })
     except Exception as e:
         return jsonify({"status": "error", "mensaje": str(e)}), 500
+
+@app.route("/estado", methods=["GET"])
+def estado():
+    return jsonify({
+        "pendientes": cola.qsize(),
+        "hilo_vivo": hilo.is_alive(),
+        "errores": errores
+    })
+
+@app.route("/siguiente", methods=["GET"])
+def siguiente_txt():
+    ss = conectar_sheets()
+    productos = ss.worksheet("Productos 2026-1").get_all_records()
+    with lock:
+        refrescar_usados(productos)
+        return str(siguiente_libre())
+        
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
