@@ -253,7 +253,8 @@ def siguiente_txt():
     productos = ss.worksheet("Productos 2026-1").get_all_records()
     with lock:
         refrescar_usados(productos)
-        return str(siguiente_libre())
+        n = siguiente_libre()
+    return f"Código {n} en adelante disponibles :)"
         
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
