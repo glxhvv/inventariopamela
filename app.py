@@ -185,8 +185,12 @@ def gestionar_producto():
                 "siguiente_codigo": str(siguiente).zfill(3)
             })
 
-        return jsonify({"status": "error", "mensaje": "Acción no reconocida."}), 400
-
+        return jsonify({
+            "status": "error",
+            "mensaje": f"Acción no reconocida: {accion!r}",
+            "recibido": datos
+        }), 400
+        
     except Exception as e:
         return jsonify({"status": "error", "mensaje": str(e)}), 500
 
