@@ -197,6 +197,23 @@ def gestionar_producto():
 @app.route("/version", methods=["GET"])
 def version():
     return "v2-cola"
-
+    
+@app.route("/codigos", methods=["GET"])
+def codigos():
+    try:
+        ss = conectar_sheets()
+        productos = ss.worksheet("Productos 2026-1").get_all_records()
+        with lock:
+            refrescar_usados(productos)
+            ordenados = sorted(usados)
+            siguiente = siguiente_libre()
+        return jsonify({
+            "status": "exito",
+            "codigos": [str(c).zfill(3) for c in ordenados],
+            "ultimo_codigo": str(ordenados[-1] if ordenados else 0).zfill(3),
+            "siguiente_codigo": str(siguiente).zfill(3)
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "mensaje": str(e)}), 500
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
