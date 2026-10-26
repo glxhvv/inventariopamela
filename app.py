@@ -48,8 +48,17 @@ def worker():
         finally:
             cola.task_done()
 
-hilo = threading.Thread(target=worker, daemon=True)
-hilo.start()
+hilo = None
+
+def asegurar_hilo():
+    global hilo
+    if hilo is None or not hilo.is_alive():
+        hilo = threading.Thread(target=worker, daemon=True)
+        hilo.start()
+
+@app.before_request
+def antes_de_cada_peticion():
+    asegurar_hilo()
 
 
 def refrescar_usados(productos):
